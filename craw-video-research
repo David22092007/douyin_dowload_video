@@ -1,6 +1,5 @@
 /**
- * Douyin_Search_Exporter
- * Trích xuất link video từ kết quả tìm kiếm
+ * Douyin_Search_Exporter - Fixed & Optimized
  */
 
 const getSearchData = async function(keyword, offset) {
@@ -26,7 +25,6 @@ const getSearchData = async function(keyword, offset) {
 };
 
 const runSearchExport = async function() {
-    // Lấy từ khóa trực tiếp từ thanh địa chỉ nếu bạn đang ở trang search
     const urlParams = new URLSearchParams(window.location.search);
     let keyword = urlParams.get('keyword') || prompt("Nhập từ khóa cần lấy link:");
     
@@ -35,129 +33,64 @@ const runSearchExport = async function() {
     let result = [];
     let offset = 0;
     let hasMore = 1;
-    let maxPages = 5; // Giới hạn số trang để tránh bị quét quá nhanh
+    let maxPages = 5; // Bạn có thể tăng số này nếu muốn lấy nhiều hơn
     let currentPage = 0;
 
-    console.log(`Đang bắt đầu quét từ khóa: ${keyword}`);
+    console.log(`🚀 Bắt đầu quét từ khóa: ${keyword}`);
 
     while (hasMore == 1 && currentPage < maxPages) {
-        console.log(`Đang tải trang ${currentPage + 1}, offset = ${offset}...`);
+        console.log(`⏳ Đang tải trang ${currentPage + 1}, offset = ${offset}...`);
         const data = await getSearchData(keyword, offset);
 
-        if (!data || !data.data) {
-            console.log("Không tìm thấy thêm dữ liệu hoặc bị chặn.");
+        if (!data) {
+            console.log("❌ Không tìm thấy dữ liệu hoặc bị chặn.");
             break;
         }
 
-        // Trong API search, danh sách video nằm trong data.data hoặc data.aweme_list
-        const items = data.data || [];
+        // Dữ liệu video thường nằm trong data.data hoặc data.aweme_list tùy phiên bản API
+        const items = data.data || data.aweme_list || [];
         
+        if (items.length === 0) {
+            console.log("⚠️ Hết kết quả tìm kiếm.");
+            break;
+        }
+
         items.forEach(item => {
-            if (item.aweme_info && item.aweme_info.share_info) {
-                let shareUrl = item.aweme_info.share_info.share_url;
-                if (shareUrl) {
-                    result.push(shareUrl.split('?')[0]); // Lấy link sạch
-                }
+            // Kiểm tra cấu trúc object để lấy share_url
+            const awemeInfo = item.aweme_info || item;
+            if (awemeInfo && awemeInfo.share_info && awemeInfo.share_info.share_url) {
+                let shareUrl = awemeInfo.share_info.share_url;
+                result.push(shareUrl.split('?')[0]); // Lấy link sạch không có tham số theo dõi
             }
         });
 
         hasMore = data.has_more;
-        offset += 20; // Search thường nhảy offset theo count
+        offset += 20; 
         currentPage++;
 
-        console.log(`Đã thu thập được: ${result.length} video`);
-        await new Promise(r => setTimeout(r, 2000)); // Nghỉ 2s để tránh bị block
-    }
-
-    if (result.length > 0) {
-        console.log("Hoàn thành! Đang tải file...");
-        const blob = new Blob([result.join('\n')], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = window.URL.createObjectURL(blob);
-        a.download = `/**
- * Douyin_Search_Exporter
- * Trích xuất link video từ kết quả tìm kiếm
- */
-
-const getSearchData = async function(keyword, offset) {
-    // API search của Douyin
-    const url = `https://www.douyin.com/aweme/v1/web/search/item/?device_platform=webapp&aid=6383&channel=channel_pc_web&keyword=${encodeURIComponent(keyword)}&offset=${offset}&count=20&version_code=170400&version_name=17.4.0`;
-
-    try {
-        const res = await fetch(url, {
-            headers: {
-                "accept": "application/json, text/plain, */*",
-                "referer": `https://www.douyin.com/search/${encodeURIComponent(keyword)}`,
-            },
-            method: "GET",
-            credentials: "include"
-        });
-
-        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-        return await res.json();
-    } catch (e) {
-        console.error("Lỗi tải dữ liệu:", e);
-        return null;
-    }
-};
-
-const runSearchExport = async function() {
-    // Lấy từ khóa trực tiếp từ thanh địa chỉ nếu bạn đang ở trang search
-    const urlParams = new URLSearchParams(window.location.search);
-    let keyword = urlParams.get('keyword') || prompt("Nhập từ khóa cần lấy link:");
-    
-    if (!keyword) return;
-
-    let result = [];
-    let offset = 0;
-    let hasMore = 1;
-    let maxPages = 5; // Giới hạn số trang để tránh bị quét quá nhanh
-    let currentPage = 0;
-
-    console.log(`Đang bắt đầu quét từ khóa: ${keyword}`);
-
-    while (hasMore == 1 && currentPage < maxPages) {
-        console.log(`Đang tải trang ${currentPage + 1}, offset = ${offset}...`);
-        const data = await getSearchData(keyword, offset);
-
-        if (!data || !data.data) {
-            console.log("Không tìm thấy thêm dữ liệu hoặc bị chặn.");
-            break;
-        }
-
-        // Trong API search, danh sách video nằm trong data.data hoặc data.aweme_list
-        const items = data.data || [];
+        console.log(`✅ Đã thu thập: ${result.length} video`);
         
-        items.forEach(item => {
-            if (item.aweme_info && item.aweme_info.share_info) {
-                let shareUrl = item.aweme_info.share_info.share_url;
-                if (shareUrl) {
-                    result.push(shareUrl.split('?')[0]); // Lấy link sạch
-                }
-            }
-        });
-
-        hasMore = data.has_more;
-        offset += 20; // Search thường nhảy offset theo count
-        currentPage++;
-
-        console.log(`Đã thu thập được: ${result.length} video`);
-        await new Promise(r => setTimeout(r, 2000)); // Nghỉ 2s để tránh bị block
+        // Nghỉ 2.5 giây để tránh bị Douyin phát hiện bot
+        await new Promise(r => setTimeout(r, 2500)); 
     }
 
     if (result.length > 0) {
-        console.log("Hoàn thành! Đang tải file...");
-        const blob = new Blob([result.join('\n')], { type: 'text/plain' });
+        console.log("💾 Hoàn thành! Đang chuẩn bị file tải về...");
+        const uniqueLinks = [...new Set(result)]; // Loại bỏ link trùng nếu có
+        const blob = new Blob([uniqueLinks.join('\n')], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = window.URL.createObjectURL(blob);
-        a.download = `douyin-share-urls.txt`;
+        
+        // SỬA LỖI TẠI ĐÂY: Chỉ đặt tên file ngắn gọn
+        a.download = `douyin_links_${keyword.replace(/\s+/g, '_')}.txt`;
+        
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+    } else {
+        console.log("❌ Không có dữ liệu để xuất.");
     }
 };
 
-runSearchExport();.txt`;
-        a.click();
-    }
-};
-
+// Thực thi script
 runSearchExport();
